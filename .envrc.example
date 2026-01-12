@@ -1,0 +1,11 @@
+# Environment variables for stocks-scoring-agent
+# Copy this file to .envrc and fill in your actual values
+# Then run: direnv allow .
+
+# OpenAI API Key
+export OPENAI_API_KEY='your-openai-api-key-here'
+
+# Polygon.io API Key (for stock market data)
+export POLYGON_API_KEY='your-polygon-api-key-here'
+
+# Add other API keys or environment variables as needed

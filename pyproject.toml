@@ -1,0 +1,16 @@
+[project]
+name = "stocks-scoring-agent"
+version = "0.1.0"
+description = "Agent that performs scoring for a selected set of stocks and future-look statements"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+
+dependencies = [
+    "jupyter>=1.0.0",
+    "openai-agents>=0.1.0",
+    "yfinance>=0.2.0",
+    "tqdm>=4.66.0",
+    "lxml>=5.0.0",
+    "minsearch>=0.0.1",
+]
