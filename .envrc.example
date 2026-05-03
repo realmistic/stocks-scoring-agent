@@ -8,4 +8,7 @@ export OPENAI_API_KEY='your-openai-api-key-here'
 # Polygon.io API Key (for stock market data)
 export POLYGON_API_KEY='your-polygon-api-key-here'
 
+# x.ai API Key (for Reddit/X sentiment research)
+export XAI_API_KEY='your-xai-api-key-here'
+
 # Add other API keys or environment variables as needed
