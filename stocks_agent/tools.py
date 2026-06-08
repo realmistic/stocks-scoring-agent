@@ -933,6 +933,205 @@ def get_top_growth_companies(
 
 
 
+def get_recent_x_posts(ticker: str, max_posts: int = 5, sort_by: str = "engagement") -> Dict[str, Any]:
+    """
+    Get recent Twitter/X posts about a stock using xAI's x_search tool.
+    
+    Args:
+        ticker: Stock ticker symbol
+        max_posts: Maximum number of posts to return (1-20)
+        sort_by: "engagement" (views+likes+replies) or "recent" (timestamp)
+        
+    Returns:
+        Dictionary with real X/Twitter posts and metadata
+        
+    Example:
+        >>> posts = get_recent_x_posts("TSLA", 3, "engagement")
+        >>> print(posts['response'])
+    """
+    api_key = os.getenv('XAI_API_KEY')
+    if not api_key:
+        return {
+            'ticker': ticker,
+            'error': 'XAI_API_KEY not found. Set it in your .envrc file.',
+            'posts': []
+        }
+    
+    try:
+        import openai
+        
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url="https://api.x.ai/v1"
+        )
+        
+        # Build search query based on sorting preference
+        if sort_by == "engagement":
+            sort_instruction = """
+            IMPORTANT: Sort by HIGHEST ENGAGEMENT (total impact) first.
+            - Calculate engagement score = views + likes + replies + retweets
+            - Show the posts with highest engagement numbers first
+            - These are the most impactful/viral posts about the stock
+            """
+        else:
+            sort_instruction = "Sort by most recent timestamp first."
+        
+        search_query = f"""
+        Search X/Twitter for posts about ${ticker} stock from the last 24 hours.
+        
+        {sort_instruction}
+        
+        For each of the {max_posts} posts, provide:
+        - Post content
+        - Author username
+        - Exact engagement metrics: views, likes, replies, retweets, bookmarks
+        - Timestamp
+        - Real working X.com link
+        - Sentiment analysis
+        
+        Focus on posts with substantial engagement that show real market impact.
+        Format each post clearly showing the engagement numbers prominently.
+        """
+        
+        # Use Responses API with x_search tool
+        response = client.responses.create(
+            model="grok-4.3",
+            input=search_query,
+            tools=[{"type": "x_search"}]
+        )
+        
+        # Extract response content
+        content = ""
+        for item in response.output:
+            if item.type == "message":
+                for content_block in item.content:
+                    if content_block.type == "output_text":
+                        content += content_block.text
+        
+        return {
+            'ticker': ticker,
+            'response': content,
+            'posts': [],
+            'sort_by': sort_by,
+            'platform': 'X/Twitter',
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+    except Exception as e:
+        return {
+            'ticker': ticker,
+            'error': f'X search error: {str(e)}',
+            'posts': []
+        }
+
+
+def get_reddit_stock_discussions(ticker: str, max_posts: int = 5, min_engagement: int = 50) -> Dict[str, Any]:
+    """
+    Get high-engagement Reddit discussions about a stock using web_search.
+    
+    Args:
+        ticker: Stock ticker symbol
+        max_posts: Maximum number of posts to return
+        min_engagement: Minimum engagement threshold (upvotes + comments)
+        
+    Returns:
+        Dictionary with Reddit discussions and metadata
+        
+    Example:
+        >>> reddit = get_reddit_stock_discussions("TSLA", 3, 50)
+        >>> print(reddit['response'])
+    """
+    api_key = os.getenv('XAI_API_KEY')
+    if not api_key:
+        return {
+            'ticker': ticker,
+            'error': 'XAI_API_KEY not found. Set it in your .envrc file.',
+            'posts': []
+        }
+    
+    try:
+        import openai
+        
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url="https://api.x.ai/v1"
+        )
+        
+        # Reddit-focused search query
+        reddit_query = f"""
+        Search Reddit for high-quality discussions about ${ticker} stock from the last 7 days.
+        
+        **TARGET SUBREDDITS:**
+        - r/investing (serious investment analysis)
+        - r/stocks (general stock discussion)  
+        - r/SecurityAnalysis (fundamental analysis)
+        - r/ValueInvesting (value perspective)
+        - r/wallstreetbets (retail sentiment & options)
+        - r/StockMarket (market discussion)
+        - r/financialindependence (long-term investing)
+        - Ticker-specific subs if they exist (like r/Tesla for TSLA)
+        
+        **ENGAGEMENT CRITERIA:**
+        - Posts with {min_engagement}+ upvotes OR 30+ comments
+        - Comments with 20+ upvotes
+        - Awarded posts (Gold, Silver, Helpful, etc.)
+        - Active discussions (not just single comments)
+        
+        **CONTENT TYPES TO PRIORITIZE:**
+        1. DD (Due Diligence) posts with detailed analysis
+        2. Earnings reaction/discussion threads
+        3. News reaction posts with substantial comments
+        4. Technical/fundamental analysis posts
+        5. Company catalyst discussions
+        6. Valuation debates
+        
+        **OUTPUT FORMAT for each post:**
+        
+        **[Subreddit Name]** - Post Title
+        **Content:** Brief summary of post + key insights from top comments
+        **Stats:** X upvotes, Y comments, Z awards
+        **Link:** Direct Reddit URL
+        **Sentiment:** Bullish/Bearish/Neutral with reasoning
+        **Key Points:** 2-3 main takeaways from the discussion
+        **Quality Level:** High/Medium (based on depth of analysis)
+        
+        Return the {max_posts} most valuable Reddit discussions about ${ticker}, sorted by engagement and discussion quality.
+        Focus on posts that provide real investment insights, not just price speculation.
+        """
+        
+        # Use Responses API with web_search tool
+        response = client.responses.create(
+            model="grok-4.3",
+            input=reddit_query,
+            tools=[{"type": "web_search"}]
+        )
+        
+        # Extract content
+        content = ""
+        for item in response.output:
+            if item.type == "message":
+                for content_block in item.content:
+                    if content_block.type == "output_text":
+                        content += content_block.text
+        
+        return {
+            'ticker': ticker,
+            'response': content,
+            'posts': [],
+            'platform': 'Reddit',
+            'min_engagement': min_engagement,
+            'search_timeframe': 'last_7_days',
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+    except Exception as e:
+        return {
+            'ticker': ticker,
+            'error': f'Reddit search error: {str(e)}',
+            'posts': []
+        }
+
+
 # ================= Agent Tool Wrappers ===================
 # Import function_tool decorator for agent use
 try:
@@ -951,6 +1150,8 @@ try:
     search_companies_tool = function_tool(search_companies)
     get_top_value_companies_tool = function_tool(get_top_value_companies)
     get_top_growth_companies_tool = function_tool(get_top_growth_companies)
+    get_recent_x_posts_tool = function_tool(get_recent_x_posts)
+    get_reddit_stock_discussions_tool = function_tool(get_reddit_stock_discussions)
 
     # List of all tools for agent use
     AGENT_TOOLS = [
@@ -965,6 +1166,8 @@ try:
         search_companies_tool,
         get_top_value_companies_tool,
         get_top_growth_companies_tool,
+        get_recent_x_posts_tool,
+        get_reddit_stock_discussions_tool,
     ]
 
 except ImportError:

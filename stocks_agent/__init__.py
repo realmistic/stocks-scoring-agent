@@ -17,7 +17,9 @@ from .tools import (
     search_news_by_query,
     search_companies,
     get_top_value_companies,
-    get_top_growth_companies
+    get_top_growth_companies,
+    get_recent_x_posts,
+    get_reddit_stock_discussions
 )
 
 __all__ = [
@@ -37,4 +39,6 @@ __all__ = [
     'search_companies',
     'get_top_value_companies',
     'get_top_growth_companies',
+    'get_recent_x_posts',
+    'get_reddit_stock_discussions',
 ]
