@@ -13,4 +13,5 @@ dependencies = [
     "tqdm>=4.66.0",
     "lxml>=5.0.0",
     "minsearch>=0.0.1",
+    "ollama>=0.6.2",
 ]
