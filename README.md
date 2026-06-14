@@ -1,46 +1,28 @@
 # 📈 Stock Analysis Agents
 
-AI-powered stock analysis system with multiple agent types for different use cases. Built with OpenAI Agents SDK and yfinance data.
+AI-powered institutional-grade stock analysis with SEC filings, social sentiment, and comprehensive market data. Built with OpenAI Agents SDK (gpt-5.4-mini).
 
-## Overview
+## 🎯 Overview
 
-This project provides three types of intelligent agents that analyze stocks using real-time market data:
+Four intelligent agent types for different analysis needs:
 
-- **SimpleAgent** - Stateless Q&A for quick stock lookups
-- **ConversationAgent** - Memory-enabled multi-turn conversations with automatic ticker tracking
-- **StructuredAgent** - Returns both narrative analysis + structured JSON data (uses OpenAI Structured Outputs)
+- **SimpleAgent** - Stateless Q&A for quick lookups (OpenAI API)
+- **ConversationAgent** - Memory-enabled multi-turn conversations with auto-ticker tracking (OpenAI API)
+- **StructuredAgent** - Returns narrative + structured JSON (30 fields) using Pydantic Structured Outputs (OpenAI API)
+- **FreeAgent** - Same functionality as SimpleAgent but uses free local Ollama models (Qwen, Llama, etc.)
 
-Each agent has access to 11 stock analysis tools covering company info, earnings, prices, news, and market screening.
+**17 analysis tools** covering fundamentals, SEC filings, social sentiment, earnings, news, and screening.
 
-## Features
+## ✨ Key Features
 
-✅ Real-time stock data from Yahoo Finance
-✅ EPS trend analysis with historical tracking
-✅ Analyst sentiment and price targets
-✅ News aggregation and filtering
-✅ Company screening (growth/value)
-✅ Structured outputs for programmatic use
-✅ Conversational memory for follow-up questions
-
-## Project Structure
-
-```
-stocks_agent/
-├── tools.py              # 11 stock analysis tools (get_company_info, get_eps_trend, etc.)
-├── simple_agent.py       # Stateless agent for one-off queries
-├── conversation_agent.py # Agent with memory and ticker tracking
-└── structured_agent.py   # Agent returning structured JSON + text
-
-notebooks/
-├── 1_testing_tools.ipynb      # Test individual tools
-└── 2_testing_py_code.ipynb    # Test agents
-```
-
-## Disclaimer
-
-This project is for research and educational purposes only. It does not constitute financial advice. The author is not responsible for financial losses.
-
----
+✅ **SEC Filing Analysis** - 10-K/10-Q with period comparisons  
+✅ **Social Sentiment** - High-engagement Twitter/X and Reddit analysis  
+✅ **Real-time Market Data** - Yahoo Finance integration  
+✅ **EPS Trend Analysis** - Historical tracking with analyst revisions  
+✅ **Comprehensive Earnings** - Estimates, revisions, growth projections  
+✅ **Advanced Screening** - Value/growth company filters  
+✅ **Structured Outputs** - 30-field Pydantic models for programmatic use  
+✅ **Conversational Memory** - Context-aware follow-up questions  
 
 ## 🚀 Quick Start
 
@@ -48,48 +30,48 @@ This project is for research and educational purposes only. It does not constitu
 # 1. Install dependencies
 uv sync
 
-# 2. Activate environment
-source .venv/bin/activate
-
-# 3. Set up environment variables
+# 2. Set up environment variables
 cp .envrc.example .envrc
-# Edit .envrc with your OPENAI_API_KEY
+# Edit .envrc with your API keys:
+#   - OPENAI_API_KEY (required)
+#   - SEC_IDENTITY_EMAIL (required for SEC filings)
+#   - POLYGON_API_KEY (optional)
 direnv allow .
 
-# 4. Test in Python or Jupyter
-python -c "from stocks_agent import SimpleAgent; print('Ready!')"
+# 3. Activate and test
+source .venv/bin/activate
+python -c "from stocks_agent import SimpleAgent; print('✅ Ready!')"
 ```
 
-## 🤖 Agents
+## 🤖 Agents Usage
 
 ### SimpleAgent
-Stateless agent for one-off queries. No conversation memory.
+Stateless - each query is independent.
 
 ```python
 from stocks_agent import SimpleAgent
 
-agent = SimpleAgent()
-response = await agent.ask("What's AAPL's PE ratio?")
-print(response)
+agent = SimpleAgent(model="gpt-5.4-mini")
+response = await agent.ask("What's AAPL's PE ratio and recent SEC filings?")
 ```
 
 ### ConversationAgent
-Maintains conversation context and automatically tracks tickers mentioned.
+Maintains context across questions.
 
 ```python
 from stocks_agent import ConversationAgent
 
 agent = ConversationAgent(track_tickers=True)
-await agent.ask("What's TSLA's valuation?")
-await agent.ask("What about earnings?")  # Auto-knows TSLA
-await agent.ask("And the news?")        # Still TSLA
+await agent.ask("Analyze TSLA's latest 10-Q filing")
+await agent.ask("What about social sentiment?")  # Auto-knows TSLA
+await agent.ask("Compare to competitors")        # Still TSLA
 
-agent.switch_to("AAPL")  # Switch context
+agent.switch_to("AAPL")  # Switch ticker
 agent.reset()            # Clear history
 ```
 
 ### StructuredAgent
-Returns tuple of (text_analysis, structured_data) using OpenAI Structured Outputs.
+Returns both text analysis AND structured data (30 fields).
 
 ```python
 from stocks_agent import StructuredAgent
@@ -97,77 +79,154 @@ from stocks_agent import StructuredAgent
 agent = StructuredAgent()
 text, data = await agent.analyze('NVDA')
 
-print(text)  # Narrative analysis
-print(data['pe_ratio'])              # 45.57
-print(data['eps_trend_direction'])   # "improving"
-print(data['valuation_summary'])     # "expensive"
+# Access structured fields
+print(data['pe_ratio'])                  # 45.57
+print(data['eps_trend_direction'])       # "improving"
+print(data['valuation_level'])           # "expensive"
+print(data['analyst_sentiment'])         # "improving"
+print(data['social_sentiment'])          # "Bullish discussions..."
+print(data['recommendation'])            # "buy"
+print(data['confidence_score'])          # 8/10
 ```
 
-## 🛠️ Available Tools
+### FreeAgent
+Uses free local Ollama models instead of OpenAI API. No API costs!
 
-All agents have access to these 11 tools:
+```python
+from stocks_agent import FreeAgent
 
+# Setup (one-time)
+# 1. Install Ollama: https://ollama.com/download
+# 2. Pull model: `ollama pull qwen3:32b`  
+# 3. Start Ollama: `ollama serve`
+
+agent = FreeAgent(model='qwen3:32b')
+response = await agent.ask("Analyze AAPL's valuation")
+
+# Check status
+print(agent.get_status())  # ✅ Connected to Ollama
+print(agent.list_models()) # See recommended models
+```
+
+**Recommended Models:**
+- `qwen3:32b` (best) - Excellent tool calling, requires 32GB+ RAM
+- `qwen3:14b` (good) - Solid performance, requires 8GB+ RAM  
+- `llama3.1:8b` (fast) - Lightweight, requires 4GB+ RAM
+
+## 🛠️ Available Tools (17)
+
+### 📊 Core Fundamentals (7 tools)
 | Tool | Description |
 |------|-------------|
-| `get_company_info_basic` | Basic company info (15 key fields) |
+| `get_company_info_basic` | Essential metrics (15 fields) |
 | `get_company_info` | Comprehensive company data |
-| `get_eps_trend` | EPS trends over time with historical tracking |
-| `get_earnings_dates` | Earnings dates and estimates |
-| `get_earnings_analysis` | Analyst earnings estimates and revisions |
-| `get_historical_prices` | Price history with momentum indicators |
-| `get_ticker_news` | Latest news for a ticker |
-| `search_news_by_ticker` | Search news by keyword for a ticker |
+| `get_eps_trend` | EPS estimates across time periods |
+| `get_earnings_dates` | Earnings calendar with surprises |
+| `get_earnings_analysis` | Analyst estimates, revisions, growth projections |
+| `get_historical_prices` | OHLCV data with momentum indicators |
+| `get_ticker_news` | Latest news articles |
+
+### 📋 SEC Filings (1 tool)
+| Tool | Description |
+|------|-------------|
+| `get_sec_filing` | 10-K/10-Q filing text with period comparisons |
+
+### 💬 Social Sentiment (3 tools)
+| Tool | Description |
+|------|-------------|
+| `get_twitter_posts_by_engagement` | Viral Twitter/X posts sorted by engagement |
+| `get_reddit_discussions_by_impact` | Reddit posts sorted by impact score |
+| `get_social_sentiment` | Combined Twitter + Reddit analysis |
+
+### 🔍 Search & Screening (6 tools)
+| Tool | Description |
+|------|-------------|
+| `search_news_by_ticker` | Keyword-filtered news for ticker |
 | `search_news_by_query` | General news search |
-| `search_companies` | Search/filter companies |
-| `get_top_value_companies` | Screen for value stocks |
-| `get_top_growth_companies` | Screen for growth stocks |
+| `search_companies` | Advanced company filtering |
+| `get_top_value_companies` | Value stock screener |
+| `get_top_growth_companies` | Growth stock screener |
+| `WebSearchTool` | General web search for context |
 
----
+## 📊 Structured Output Models
 
-## 📦 Setup Details
+### Production: StockAnalysisOutput (30 fields)
+Used by `StructuredAgent` - comprehensive institutional analysis.
 
-### Dependencies
+**Field Categories:**
+- **Basic Info** (4): ticker, company_name, sector, industry
+- **EPS & Earnings** (3): estimates, trend, surprise %
+- **Valuation** (8): PE, forward PE, PEG, P/B, price, target, distance from highs/lows
+- **Analyst Data** (4): count, revisions, sentiment, targets
+- **Market Activity** (3): news count, sentiment score, social sentiment
+- **Technical** (2): momentum, volatility
+- **Investment Summary** (5): thesis, catalysts, risks, recommendation, confidence
+- **Analysis** (1): comprehensive narrative
 
-This project uses `uv` for dependency management. Key dependencies:
-- `openai-agents` - AI agent framework
-- `yfinance` - Yahoo Finance data
-- `jupyter` - Notebook support
-- `pydantic` - Data validation
+### Tutorial: SimpleStockAnalysis (15 fields)
+Simpler version demonstrated in `notebooks/1_tools_and_sample_agents.ipynb`.
 
-```bash
-uv sync                    # Install all dependencies
-source .venv/bin/activate  # Activate virtual environment
+**Use StockAnalysisOutput for production, SimpleStockAnalysis for learning.**
+
+## 📁 Project Structure
+
+```
+stocks-scoring-agent/
+├── stocks_agent/
+│   ├── tools.py              # 17 analysis tools
+│   ├── simple_agent.py       # Stateless agent (OpenAI)
+│   ├── conversation_agent.py # Memory-enabled agent (OpenAI)
+│   ├── structured_agent.py   # Structured output agent (OpenAI, 30 fields)
+│   └── free_agent.py         # Local Ollama agent (Qwen, Llama, etc.)
+├── notebooks/
+│   ├── 0_api_endpoints_test_data.ipynb    # API testing
+│   ├── 1_tools_and_sample_agents.ipynb    # Tool demos & tutorials
+│   └── 2_testing_py_code.ipynb            # Agent testing
+├── .envrc.example            # Environment template
+├── pyproject.toml            # Dependencies
+└── README.md
 ```
 
-### Jupyter Notebooks
+## 🔧 Setup Details
 
-Register the Jupyter kernel for VS Code:
+### Dependencies
+Managed with `uv`. Key libraries:
+- `openai-agents` - AI agent framework
+- `yfinance` - Market data
+- `edgar` - SEC filing access
+- `pydantic` - Structured outputs
+- `jupyter` - Notebook support
 
+### Environment Variables
+Required:
+```bash
+export OPENAI_API_KEY='your-openai-key'
+export SEC_IDENTITY_EMAIL='your-email@example.com'  # For SEC API
+```
+
+Optional:
+```bash
+export XAI_API_KEY='your-xai-key'
+export POLYGON_API_KEY='your-polygon-key'
+```
+
+### Jupyter Setup
 ```bash
 source .venv/bin/activate
 python -m ipykernel install --user --name=stocks-scoring-agent
+# Then select "stocks-scoring-agent" kernel in VS Code
 ```
 
-In VS Code:
-1. Open a notebook
-2. Select kernel → "Jupyter Kernel" → "stocks-scoring-agent"
-3. Launch VS Code from terminal (`code .`) to load environment variables automatically
+## 📚 Learning Path
 
-### Environment Variables
+1. **Start here:** `notebooks/1_tools_and_sample_agents.ipynb` - Learn tools & basic agents
+2. **Test agents:** `notebooks/2_testing_py_code.ipynb` - Test production code
+3. **Explore API:** `notebooks/0_api_endpoints_test_data.ipynb` - Raw API testing
 
-This project uses `direnv` for secure environment variable management.
+## ⚠️ Disclaimer
 
-Create `.envrc` in project root:
-```bash
-export OPENAI_API_KEY='your-openai-api-key-here'
-export POLYGON_API_KEY='your-polygon-api-key-here'
-```
+**For research and educational purposes only.** Not financial advice. The author is not responsible for financial losses. Always conduct your own research and consult financial advisors before making investment decisions.
 
-Setup direnv (first time only):
-```bash
-brew install direnv
-echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
-direnv allow .
-```
+## 📄 License
 
-When you `cd` into the project, variables auto-load. When you leave, they auto-unload.
+See LICENSE file.
