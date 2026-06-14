@@ -1,7 +1,7 @@
 """Stock analysis tools - callable directly or via agents."""
 
 import yfinance as yf
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Literal
 from datetime import datetime, timedelta
 import pandas as pd
 import re
@@ -1025,9 +1025,367 @@ def get_recent_x_posts(ticker: str, max_posts: int = 5, sort_by: str = "engageme
         }
 
 
+def get_sec_filing(
+    ticker: str,
+    filing_type: Literal["annual", "quarterly"] = "quarterly",
+    periods_ago: int = 0,
+) -> dict[str, Any]:
+    """
+    Get the text of an SEC filing.
+
+    Args:
+        ticker: Stock ticker (e.g. AAPL, MSFT, TSLA)
+        filing_type:
+            - "quarterly" -> 10-Q
+            - "annual" -> 10-K
+        periods_ago:
+            Which filing to retrieve.
+            0 = latest
+            1 = previous filing
+            2 = two filings ago
+            ...
+
+    Returns:
+        Dictionary containing filing metadata and text.
+    """
+
+    try:
+        sec_email = os.getenv("SEC_IDENTITY_EMAIL")
+        if not sec_email:
+            return {
+                "success": False,
+                "error": "SEC_IDENTITY_EMAIL not set in environment",
+            }
+
+        from edgar import Company, set_identity
+        set_identity(sec_email)
+
+        form = {
+            "quarterly": "10-Q",
+            "annual": "10-K",
+        }[filing_type]
+
+        company = Company(ticker)
+
+        filings = company.get_filings(form=form)
+
+        filing_list = list(filings)
+
+        if periods_ago >= len(filing_list):
+            return {
+                "success": False,
+                "ticker": ticker,
+                "filing_type": filing_type,
+                "periods_ago": periods_ago,
+                "available_filings": len(filing_list),
+                "error": f"Only {len(filing_list)} {form} filings available.",
+            }
+
+        filing = filing_list[periods_ago]
+        text = filing.text()
+
+        return {
+            "success": True,
+            "ticker": ticker,
+            "filing_type": filing_type,
+            "form": form,
+            "periods_ago": periods_ago,
+            "filing_date": getattr(filing, "filing_date", None),
+            "accession_number": getattr(filing, "accession_number", None),
+            "text_length": len(text),
+            "text": text,
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "ticker": ticker,
+            "filing_type": filing_type,
+            "periods_ago": periods_ago,
+            "error": str(e),
+        }
+
+
+def get_twitter_posts_by_engagement(
+    ticker: str, 
+    max_posts: int = 5, 
+    days_back: int = 1,
+    min_engagement: int = 100
+) -> Dict[str, Any]:
+    """
+    Get Twitter/X posts about a stock, sorted by HIGHEST ENGAGEMENT (viral posts).
+    
+    Engagement = views + likes + replies + retweets + bookmarks
+    Posts are sorted by total engagement to find the most impactful discussions.
+    
+    Args:
+        ticker: Stock ticker symbol (e.g., 'TSLA', 'AAPL')
+        max_posts: Number of posts to return (default: 5)
+        days_back: How many days to look back (default: 1)
+        min_engagement: Minimum engagement threshold (default: 100)
+    
+    Returns:
+        Dictionary with ticker, posts data, and metadata
+    """
+    api_key = os.getenv('XAI_API_KEY')
+    if not api_key:
+        return {
+            'success': False,
+            'ticker': ticker,
+            'error': 'XAI_API_KEY not found in environment'
+        }
+    
+    try:
+        import openai
+        
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url="https://api.x.ai/v1"
+        )
+        
+        # Calculate date range
+        from_date = datetime.now() - timedelta(days=days_back)
+        to_date = datetime.now()
+        
+        search_query = f"""
+        Search X/Twitter for HIGH-ENGAGEMENT posts about ${ticker} stock from the last {days_back} day(s).
+        
+        **CRITICAL SORTING REQUIREMENT:**
+        - Sort by HIGHEST ENGAGEMENT first (most viral/impactful)
+        - Engagement score = views + likes + replies + retweets + bookmarks
+        - Only show posts with {min_engagement}+ total engagement
+        
+        **For each of the top {max_posts} posts, provide:**
+        1. **Engagement Metrics** (prominently displayed):
+           - Total engagement score
+           - Views, Likes, Replies, Retweets, Bookmarks (breakdown)
+        2. **Post Content**: Full text
+        3. **Author**: Username and verification status
+        4. **Timestamp**: Exact time posted
+        5. **Link**: Working X.com URL
+        6. **Sentiment**: Bullish/Bearish/Neutral with reasoning
+        7. **Why it matters**: Why this post is significant/viral
+        
+        **Focus on:**
+        - Posts from verified accounts, analysts, or influencers
+        - Posts that generated real discussion/impact
+        - News reactions, earnings discussion, technical analysis
+        - Skip spam, bots, or low-quality posts
+        
+        Date range: {from_date.strftime('%Y-%m-%d')} to {to_date.strftime('%Y-%m-%d')}
+        
+        Return the {max_posts} MOST VIRAL posts sorted by engagement score (highest first).
+        """
+        
+        response = client.responses.create(
+            model="grok-4.3",
+            input=search_query,
+            tools=[{"type": "x_search"}]
+        )
+        
+        # Extract content
+        content = ""
+        for item in response.output:
+            if item.type == "message":
+                for content_block in item.content:
+                    if content_block.type == "output_text":
+                        content += content_block.text
+        
+        return {
+            'success': True,
+            'ticker': ticker,
+            'response': content,
+            'search_params': {
+                'max_posts': max_posts,
+                'days_back': days_back,
+                'min_engagement': min_engagement,
+                'date_range': f"{from_date.strftime('%Y-%m-%d')} to {to_date.strftime('%Y-%m-%d')}",
+                'sort_by': 'engagement_desc'
+            },
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'platform': 'Twitter/X'
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'ticker': ticker,
+            'error': f'Twitter search failed: {str(e)}'
+        }
+
+
+def get_reddit_discussions_by_impact(
+    ticker: str,
+    max_posts: int = 5,
+    days_back: int = 7,
+    min_upvotes: int = 50
+) -> Dict[str, Any]:
+    """
+    Get Reddit discussions about a stock, sorted by HIGHEST IMPACT.
+    
+    Impact = upvotes + comments + awards (weighted)
+    Searches major investment subreddits for quality discussions.
+    
+    Args:
+        ticker: Stock ticker symbol (e.g., 'TSLA', 'AAPL')
+        max_posts: Number of posts to return (default: 5)
+        days_back: How many days to look back (default: 7)
+        min_upvotes: Minimum upvotes threshold (default: 50)
+    
+    Returns:
+        Dictionary with ticker, posts data, and metadata
+    """
+    api_key = os.getenv('XAI_API_KEY')
+    if not api_key:
+        return {
+            'success': False,
+            'ticker': ticker,
+            'error': 'XAI_API_KEY not found in environment'
+        }
+    
+    try:
+        import openai
+        
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url="https://api.x.ai/v1"
+        )
+        
+        reddit_query = f"""
+        Search Reddit for HIGH-IMPACT discussions about ${ticker} stock from the last {days_back} days.
+        
+        **TARGET SUBREDDITS (search these specifically):**
+        - r/investing (serious investment analysis)
+        - r/stocks (general stock discussion)
+        - r/SecurityAnalysis (fundamental analysis)
+        - r/ValueInvesting (value perspective)
+        - r/wallstreetbets (retail sentiment & options activity)
+        - r/StockMarket (market discussion)
+        - Ticker-specific subs if they exist (e.g., r/TeslaInvestorsClub for TSLA)
+        
+        **CRITICAL SORTING REQUIREMENT:**
+        - Sort by HIGHEST IMPACT score first
+        - Impact score = upvotes + (comments × 2) + (awards × 5)
+        - Only posts with {min_upvotes}+ upvotes
+        
+        **CONTENT PRIORITIES (in order):**
+        1. DD (Due Diligence) posts with financial analysis
+        2. Earnings reaction threads with substantial discussion
+        3. News reaction posts with quality comments
+        4. Technical/fundamental analysis
+        5. Catalyst discussions (product launches, regulatory news, etc.)
+        
+        **For each of the top {max_posts} posts, provide:**
+        1. **Subreddit & Title**
+        2. **Impact Metrics**:
+           - Upvotes
+           - Comments count
+           - Awards (Gold, Silver, Helpful, etc.)
+           - Impact score calculation
+        3. **Content Summary**: Post summary + key insights from top comments
+        4. **Sentiment**: Bullish/Bearish/Neutral with reasoning
+        5. **Key Takeaways**: 2-3 main investment insights
+        6. **Quality Level**: High/Medium (based on analysis depth)
+        7. **Link**: Direct Reddit URL
+        8. **Author credibility**: Note if author has history of quality posts
+        
+        **Focus on:**
+        - Posts that provide real investment insights
+        - Quality discussions in comments
+        - Fundamental or technical analysis
+        - Skip memes, low-effort posts, pure speculation
+        
+        Return the {max_posts} HIGHEST IMPACT posts sorted by impact score (highest first).
+        Filter for posts from the last {days_back} days only.
+        """
+        
+        response = client.responses.create(
+            model="grok-4.3",
+            input=reddit_query,
+            tools=[{"type": "web_search"}]
+        )
+        
+        # Extract content
+        content = ""
+        for item in response.output:
+            if item.type == "message":
+                for content_block in item.content:
+                    if content_block.type == "output_text":
+                        content += content_block.text
+        
+        return {
+            'success': True,
+            'ticker': ticker,
+            'response': content,
+            'search_params': {
+                'max_posts': max_posts,
+                'days_back': days_back,
+                'min_upvotes': min_upvotes,
+                'sort_by': 'impact_score_desc'
+            },
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'platform': 'Reddit'
+        }
+        
+    except Exception as e:
+        return {
+            'success': False,
+            'ticker': ticker,
+            'error': f'Reddit search failed: {str(e)}'
+        }
+
+
+def get_social_sentiment(
+    ticker: str,
+    include_twitter: bool = True,
+    include_reddit: bool = True,
+    days_back: int = 3
+) -> dict[str, Any]:
+    """
+    Get combined social media sentiment from Twitter and Reddit.
+    
+    Returns top posts from both platforms sorted by engagement/impact.
+    
+    Args:
+        ticker: Stock ticker symbol
+        include_twitter: Include Twitter/X posts (default: True)
+        include_reddit: Include Reddit discussions (default: True)
+        days_back: How many days to look back (default: 3)
+    
+    Returns:
+        Dictionary with combined social sentiment data
+    """
+    results = {
+        'ticker': ticker,
+        'days_back': days_back,
+        'twitter': None,
+        'reddit': None,
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }
+    
+    if include_twitter:
+        results['twitter'] = get_twitter_posts_by_engagement(
+            ticker=ticker,
+            max_posts=5,
+            days_back=days_back,
+            min_engagement=100
+        )
+    
+    if include_reddit:
+        results['reddit'] = get_reddit_discussions_by_impact(
+            ticker=ticker,
+            max_posts=5,
+            days_back=days_back,
+            min_upvotes=50
+        )
+    
+    return results
+
+
 def get_reddit_stock_discussions(ticker: str, max_posts: int = 5, min_engagement: int = 50) -> Dict[str, Any]:
     """
     Get high-engagement Reddit discussions about a stock using web_search.
+    DEPRECATED: Use get_reddit_discussions_by_impact instead for better sorting.
     
     Args:
         ticker: Stock ticker symbol
@@ -1152,9 +1510,15 @@ try:
     get_top_growth_companies_tool = function_tool(get_top_growth_companies)
     get_recent_x_posts_tool = function_tool(get_recent_x_posts)
     get_reddit_stock_discussions_tool = function_tool(get_reddit_stock_discussions)
+    # New SEC and enhanced social media tools
+    get_sec_filing_tool = function_tool(get_sec_filing)
+    get_twitter_posts_by_engagement_tool = function_tool(get_twitter_posts_by_engagement)
+    get_reddit_discussions_by_impact_tool = function_tool(get_reddit_discussions_by_impact)
+    get_social_sentiment_tool = function_tool(get_social_sentiment)
 
-    # List of all tools for agent use
+    # List of all tools for agent use - ONLY safe, enhanced tools
     AGENT_TOOLS = [
+        # Core financial data tools
         get_company_info_tool,
         get_eps_trend_tool,
         get_earnings_dates_tool,
@@ -1166,8 +1530,12 @@ try:
         search_companies_tool,
         get_top_value_companies_tool,
         get_top_growth_companies_tool,
-        get_recent_x_posts_tool,
-        get_reddit_stock_discussions_tool,
+        
+        # Enhanced SEC and social media tools (safe versions)
+        get_sec_filing_tool,
+        get_twitter_posts_by_engagement_tool,
+        get_reddit_discussions_by_impact_tool,
+        get_social_sentiment_tool,
     ]
 
 except ImportError:
