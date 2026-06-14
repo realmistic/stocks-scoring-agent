@@ -1,68 +1,133 @@
-"""Structured stock analysis agent returning both text and data."""
+"""Structured stock analysis agent returning Pydantic models with real structured output.
+
+ENHANCED VERSION: This implementation extends the SimpleStockAnalysis model from 
+notebook 1_tools_and_sample_agents.ipynb with additional fields for comprehensive
+institutional-grade analysis:
+
+- 30 fields vs 15 fields (notebook version)
+- Additional metrics: sector, industry, forward_pe, peg_ratio, price_to_book
+- Enhanced analysis: target_price, social_sentiment, momentum_direction, volatility
+- Investment details: key_catalysts, risk_factors, analysis_summary
+- Integrates SEC filings, social sentiment, and comprehensive analyst data
+
+For simpler analysis matching the notebook, use the 15-field SimpleStockAnalysis 
+pattern shown in notebook Cell 73-74.
+"""
 
 from typing import Optional, Dict, Any, Tuple, Literal
-import json
-import re
-from pydantic import BaseModel
+from enum import Enum
+from pydantic import BaseModel, Field
 from agents import Agent, Runner, ModelSettings
 from agents import WebSearchTool
 from .tools import AGENT_TOOLS, normalize_ticker
 
 
+class TrendDirection(str, Enum):
+    """Trend direction enumeration."""
+    IMPROVING = "improving"
+    DECLINING = "declining"
+    STABLE = "stable"
+    UNKNOWN = "unknown"
+
+
+class ValuationLevel(str, Enum):
+    """Valuation level enumeration."""
+    CHEAP = "cheap"
+    FAIR = "fair"
+    EXPENSIVE = "expensive"
+    UNKNOWN = "unknown"
+
+
+class Recommendation(str, Enum):
+    """Investment recommendation enumeration."""
+    BUY = "buy"
+    HOLD = "hold"
+    SELL = "sell"
+
+
 class StockAnalysisOutput(BaseModel):
-    """Structured output schema for stock analysis."""
-    ticker: str
-    company_name: Optional[str] = None
-    sector: Optional[str] = None
-    industry: Optional[str] = None
-    pe_ratio: Optional[float] = None
-    forward_pe: Optional[float] = None
-    peg_ratio: Optional[float] = None
-    price_to_book: Optional[float] = None
-    current_price: Optional[float] = None
-    target_price: Optional[float] = None
-    eps_trend_direction: Literal['improving', 'declining', 'stable', 'unknown'] = 'unknown'
-    analyst_sentiment: Optional[str] = None
-    analyst_count: Optional[int] = None
-    recommendation_mean: Optional[float] = None
-    distance_from_high_pct: Optional[float] = None
-    distance_from_low_pct: Optional[float] = None
-    valuation_summary: Literal['cheap', 'fair', 'expensive', 'unknown'] = 'unknown'
-    momentum: Literal['positive', 'negative', 'mixed', 'unknown'] = 'unknown'
-    news_count: int = 0
-    analysis_summary: str
+    """Structured output schema for comprehensive stock analysis."""
+    # Basic Info
+    ticker: str = Field(description="Stock ticker symbol")
+    company_name: str = Field(description="Company name")
+    sector: Optional[str] = Field(description="Business sector")
+    industry: Optional[str] = Field(description="Industry classification")
+    
+    # 1. EPS & Earnings Analysis
+    eps_current_estimate: Optional[float] = Field(description="Current quarter EPS estimate")
+    eps_trend_direction: TrendDirection = Field(description="EPS trend direction over time")
+    earnings_surprise_pct: Optional[float] = Field(description="Latest earnings surprise %")
+    
+    # 2. Price & Valuation Metrics
+    current_price: Optional[float] = Field(description="Current stock price")
+    pe_ratio: Optional[float] = Field(description="Trailing P/E ratio")
+    forward_pe: Optional[float] = Field(description="Forward P/E ratio")
+    peg_ratio: Optional[float] = Field(description="PEG ratio")
+    price_to_book: Optional[float] = Field(description="Price-to-book ratio")
+    distance_from_52w_high_pct: Optional[float] = Field(description="Distance from 52-week high %")
+    distance_from_52w_low_pct: Optional[float] = Field(description="Distance from 52-week low %")
+    valuation_level: ValuationLevel = Field(description="Overall valuation assessment")
+    
+    # 3. Analyst Coverage & Sentiment
+    analyst_count: Optional[int] = Field(description="Number of covering analysts")
+    analyst_revisions_net_7d: Optional[int] = Field(description="Net analyst revisions last 7 days")
+    analyst_sentiment: TrendDirection = Field(description="Overall analyst sentiment trend")
+    target_price: Optional[float] = Field(description="Mean analyst target price")
+    
+    # 4. News & Market Activity
+    recent_news_count: Optional[int] = Field(description="Number of recent news articles")
+    news_sentiment_score: Optional[float] = Field(ge=-1, le=1, description="News sentiment score (-1 to 1)")
+    social_sentiment: Optional[str] = Field(description="Social media sentiment summary")
+    
+    # 5. Technical & Momentum
+    momentum_direction: TrendDirection = Field(description="Price momentum direction")
+    volatility_level: Optional[str] = Field(description="Volatility assessment")
+    
+    # 6. Investment Summary
+    investment_thesis: str = Field(description="One-sentence investment thesis")
+    key_catalysts: Optional[str] = Field(description="Key upcoming catalysts")
+    risk_factors: Optional[str] = Field(description="Primary risk factors")
+    recommendation: Recommendation = Field(description="Buy/Hold/Sell recommendation")
+    confidence_score: int = Field(ge=1, le=10, description="Confidence level 1-10")
+    
+    # 7. Comprehensive Analysis
+    analysis_summary: str = Field(description="Detailed multi-paragraph analysis")
 
 
-DEFAULT_INSTRUCTIONS = """You are a stock analysis expert providing comprehensive structured analysis.
+DEFAULT_INSTRUCTIONS = """You are a comprehensive stock analysis expert providing structured analysis using real-time data.
 
-Your role is to provide deep, data-driven analysis with structured data outputs.
+Your role is to analyze stocks thoroughly using all available tools and provide structured Pydantic output with precise field mapping.
 
-Key guidelines:
-- Always use the provided tools to fetch real-time data
-- Fill in ALL structured output fields with data from the tools
-- Be objective and data-driven
-- If a ticker is deprecated (e.g., FB -> META), use web search to find the correct ticker
-- When you encounter a 404 error, search for the correct ticker
+ANALYSIS WORKFLOW:
+1. **Company Fundamentals**: Use get_company_info for comprehensive metrics
+2. **Earnings Analysis**: Use get_earnings_analysis and get_eps_trend for detailed EPS data
+3. **SEC Filing Insights**: Use get_sec_filing for latest developments vs prior periods  
+4. **Social Sentiment**: Use get_social_sentiment for Twitter/Reddit analysis
+5. **Historical Performance**: Use get_historical_prices for momentum and technical analysis
+6. **News Coverage**: Use get_ticker_news for recent developments
+7. **Competitive Context**: Use search_companies when relevant
 
-Analysis framework:
-1. **Company Overview**: Basic info, sector, industry
-2. **Valuation Analysis**: PE ratio, P/B, PEG, Forward PE
-3. **EPS Trend**: Determine if improving/declining/stable based on quarterly data
-4. **Analyst Sentiment**: Recommendations, price targets, analyst count
-5. **Price Momentum**: Distance from highs/lows, momentum (positive/negative/mixed)
-6. **Recent News**: Count articles, identify themes
-7. **Valuation Summary**: Classify as cheap/fair/expensive based on:
-   - Distance from 52w high: < -30% = cheap, > -10% = expensive, else fair
-8. **Analysis Summary**: Write a comprehensive narrative analysis
+STRUCTURED OUTPUT REQUIREMENTS:
+- Map ALL available data from tools to the appropriate Pydantic fields
+- For eps_trend_direction: Compare current estimates vs 30/60/90 days ago
+- For valuation_level: Consider PE ratio, distance from highs, and peer comparisons
+- For analyst_sentiment: Analyze revision trends and recommendation changes
+- For momentum_direction: Use price action and technical indicators
+- For recommendation: Synthesize all factors into clear buy/hold/sell
 
-IMPORTANT:
-- Extract numeric data from tool outputs to populate structured fields
-- For eps_trend_direction: Compare recent vs older quarters to determine improving/declining/stable
-- For valuation_summary: Use distance_from_high_pct to classify
-- For momentum: Analyze price trends from historical data
-- For analysis_summary: Write a detailed multi-paragraph analysis
+FIELD MAPPING GUIDELINES:
+- ticker: Extract from function calls
+- company_name, sector, industry: From get_company_info
+- eps_current_estimate: Current quarter estimate from get_eps_trend
+- eps_trend_direction: Compare current vs historical estimates
+- current_price, pe_ratio, forward_pe: From get_company_info
+- distance_from_52w_high_pct: Calculate from historical data
+- analyst_count, target_price: From analyst data tools
+- recent_news_count: Count from get_ticker_news
+- investment_thesis: One clear sentence summarizing the opportunity
+- analysis_summary: Comprehensive 3-4 paragraph analysis integrating all data sources
 
-Never provide financial advice - focus on data and analysis."""
+Be thorough, objective, and data-driven. Fill every relevant field with precise information from the tools."""
 
 
 class StructuredAgent:
@@ -97,7 +162,7 @@ class StructuredAgent:
 
     def __init__(
         self,
-        model: str = "gpt-4o-mini",
+        model: str = "gpt-5.4-mini",
         temperature: float = 0.3,
         instructions: Optional[str] = None
     ):
@@ -105,7 +170,7 @@ class StructuredAgent:
         Initialize StructuredAgent.
 
         Args:
-            model: LLM model name (default: gpt-4o-mini)
+            model: LLM model name (default: gpt-5.4-mini)
             temperature: Model temperature (default: 0.3)
             instructions: Custom instructions (default: DEFAULT_INSTRUCTIONS)
         """
