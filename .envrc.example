@@ -11,4 +11,8 @@ export POLYGON_API_KEY='your-polygon-api-key-here'
 # x.ai API Key (for Reddit/X sentiment research)
 export XAI_API_KEY='your-xai-api-key-here'
 
+# SEC EDGAR Identity Email (required for SEC filing downloads)
+# This email will be used to identify yourself when making requests to SEC's EDGAR system
+export SEC_IDENTITY_EMAIL='your-email@example.com'
+
 # Add other API keys or environment variables as needed
