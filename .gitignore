@@ -161,6 +161,7 @@ dmypy.json
 
 # Portfolio monitor run ledger
 runs/*.jsonl
+outputs/*.html
 
 # Pyre type checker
 .pyre/

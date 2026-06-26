@@ -23,6 +23,7 @@ from .monitoring_schema import (
     ToolEvidence,
     ToolPolicy,
 )
+from .monitor_report import write_monitor_report
 
 
 class MarketDataProvider(Protocol):
@@ -430,6 +431,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         default="runs",
         help="Directory for JSONL run ledger.",
     )
+    parser.add_argument(
+        "--report-html",
+        help="Optional path for a self-contained HTML report artifact.",
+    )
     return parser
 
 
@@ -445,6 +450,10 @@ def main() -> None:
     if args.write_ledger:
         output_path = write_ledger(run, args.ledger_dir)
         print(f"Wrote ledger record to {output_path}")
+
+    if args.report_html:
+        report_path = write_monitor_report(run, args.report_html)
+        print(f"Wrote HTML report to {report_path}")
 
     print(json.dumps(run.model_dump(mode="json"), indent=2))
 

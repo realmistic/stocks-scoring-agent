@@ -16,6 +16,7 @@ repeatable runtime around those tools:
 - typed alert schema;
 - run ledger;
 - Telegram digest;
+- self-contained HTML report artifact;
 - eval/grader hooks in a later iteration.
 
 This makes the system easier to test, debug, and productize than a generic
@@ -61,6 +62,15 @@ python -m stocks_agent.portfolio_monitor \
   --write-ledger
 ```
 
+To write a self-contained HTML report:
+
+```bash
+python -m stocks_agent.portfolio_monitor \
+  --portfolio examples/portfolio.json \
+  --sample-data \
+  --report-html outputs/report.html
+```
+
 To format a Telegram digest:
 
 ```python
@@ -75,3 +85,15 @@ print(format_telegram_digest(run))
 
 Sending requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 
+## Relation To Data Analyst Agent Patterns
+
+The Anthropic `managed_agents/data_analyst_agent.ipynb` cookbook uses a
+different stack: Claude Managed Agents, hosted environments, mounted resources,
+streamed events, and Files API outputs. This repo uses local Python modules and
+the existing OpenAI Agents SDK tools, so the runtime should not be copied
+directly.
+
+The useful transferable pattern is the output contract: every run should produce
+inspectable artifacts, not only a chat response. This harness therefore writes
+structured JSON, optional JSONL ledger records, Telegram digests, and an optional
+self-contained HTML report.

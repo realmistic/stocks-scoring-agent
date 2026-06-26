@@ -132,6 +132,12 @@ python -m stocks_agent.portfolio_monitor \
   --portfolio examples/portfolio.json \
   --sample-data \
   --write-ledger
+
+# Produce a self-contained HTML report artifact
+python -m stocks_agent.portfolio_monitor \
+  --portfolio examples/portfolio.json \
+  --sample-data \
+  --report-html outputs/report.html
 ```
 
 Format alerts for Telegram:
@@ -216,6 +222,7 @@ stocks-scoring-agent/
 │   ├── free_agent.py         # Local Ollama agent (Qwen, Llama, etc.)
 │   ├── monitoring_schema.py  # Portfolio monitor schemas
 │   ├── portfolio_monitor.py  # Thesis drift monitoring harness
+│   ├── monitor_report.py     # Self-contained HTML report artifact
 │   └── telegram_digest.py    # Telegram digest helpers
 ├── docs/
 │   └── portfolio-thesis-drift-monitor.md

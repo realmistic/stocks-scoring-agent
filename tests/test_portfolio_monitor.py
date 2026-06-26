@@ -9,6 +9,7 @@ from stocks_agent.portfolio_monitor import (
     run_monitor,
     write_ledger,
 )
+from stocks_agent.monitor_report import render_monitor_report, write_monitor_report
 from stocks_agent.telegram_digest import format_telegram_digest
 
 
@@ -84,6 +85,45 @@ class PortfolioMonitorTest(unittest.TestCase):
         categories = {alert.category for alert in run.alerts}
         self.assertNotIn("get_ticker_news", tools)
         self.assertNotIn("news_keyword", categories)
+
+    def test_monitor_report_contains_alerts_and_evidence(self):
+        config = PortfolioConfig.model_validate(
+            {
+                "name": "Report portfolio",
+                "positions": [
+                    {
+                        "ticker": "NVDA",
+                        "thesis": "Premium AI infrastructure thesis.",
+                        "max_distance_from_high_pct": 15,
+                    }
+                ],
+            }
+        )
+        run = run_monitor(config=config, provider=SampleMarketDataProvider())
+
+        html = render_monitor_report(run)
+
+        self.assertIn("<!doctype html>", html)
+        self.assertIn("Report portfolio", html)
+        self.assertIn("Evidence Ledger", html)
+        self.assertIn("NVDA-price", html)
+
+    def test_write_monitor_report(self):
+        config = PortfolioConfig.model_validate(
+            {
+                "name": "Write report portfolio",
+                "positions": [
+                    {"ticker": "GOOG", "thesis": "Durable compounding thesis."}
+                ],
+            }
+        )
+        run = run_monitor(config=config, provider=SampleMarketDataProvider())
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            report_path = write_monitor_report(run, Path(tmpdir) / "report.html")
+
+            self.assertTrue(report_path.exists())
+            self.assertIn("Write report portfolio", report_path.read_text())
 
     def test_load_config_and_write_ledger(self):
         with tempfile.TemporaryDirectory() as tmpdir:
