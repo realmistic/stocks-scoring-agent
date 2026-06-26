@@ -15,4 +15,9 @@ export XAI_API_KEY='your-xai-api-key-here'
 # This email will be used to identify yourself when making requests to SEC's EDGAR system
 export SEC_IDENTITY_EMAIL='your-email@example.com'
 
+# Telegram bot settings (optional, for sending portfolio monitor digests)
+# Never commit a real bot token. If a token is exposed, revoke it in BotFather.
+export TELEGRAM_BOT_TOKEN='your-telegram-bot-token-here'
+export TELEGRAM_CHAT_ID='your-telegram-chat-id-here'
+
 # Add other API keys or environment variables as needed

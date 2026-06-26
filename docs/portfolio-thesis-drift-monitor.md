@@ -136,6 +136,68 @@ print(format_telegram_digest(run))
 
 Sending requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 
+### Telegram Delivery Smoke Test
+
+Create a bot with BotFather, send `/start` to the bot, and keep the real token
+only in your local shell or `.envrc`. Do not commit real Telegram credentials.
+
+```bash
+export TELEGRAM_BOT_TOKEN='your-telegram-bot-token-here'
+```
+
+Check that the token belongs to the expected bot:
+
+```bash
+uv run python - <<'PY'
+import os
+import requests
+
+token = os.environ["TELEGRAM_BOT_TOKEN"]
+print(requests.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10).json())
+PY
+```
+
+Find the numeric chat ID after sending the bot `/start` or any message:
+
+```bash
+uv run python - <<'PY'
+import json
+import os
+import requests
+
+token = os.environ["TELEGRAM_BOT_TOKEN"]
+updates = requests.get(
+    f"https://api.telegram.org/bot{token}/getUpdates",
+    timeout=10,
+).json()
+print(json.dumps(updates, indent=2))
+PY
+```
+
+Look for `message.chat.id`, then export it:
+
+```bash
+export TELEGRAM_CHAT_ID='your-telegram-chat-id-here'
+```
+
+Send a sample monitor digest:
+
+```bash
+uv run python - <<'PY'
+from stocks_agent.portfolio_monitor import (
+    SampleMarketDataProvider,
+    load_portfolio_config,
+    run_monitor,
+)
+from stocks_agent.telegram_digest import format_telegram_digest, send_telegram_digest
+
+config = load_portfolio_config("examples/portfolio.json")
+run = run_monitor(config, provider=SampleMarketDataProvider())
+text = format_telegram_digest(run)
+print(send_telegram_digest(text))
+PY
+```
+
 ## Outputs
 
 | Output | How to produce it | Use |

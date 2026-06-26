@@ -161,6 +161,27 @@ print(format_telegram_digest(run))
 Sending the digest requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 See `docs/portfolio-thesis-drift-monitor.md` for the harness design.
 
+Check Telegram delivery:
+
+```bash
+export TELEGRAM_BOT_TOKEN='your-telegram-bot-token-here'
+export TELEGRAM_CHAT_ID='your-telegram-chat-id-here'
+
+uv run python - <<'PY'
+from stocks_agent.portfolio_monitor import (
+    SampleMarketDataProvider,
+    load_portfolio_config,
+    run_monitor,
+)
+from stocks_agent.telegram_digest import format_telegram_digest, send_telegram_digest
+
+config = load_portfolio_config("examples/portfolio.json")
+run = run_monitor(config, provider=SampleMarketDataProvider())
+text = format_telegram_digest(run)
+print(send_telegram_digest(text))
+PY
+```
+
 Run monitor tests:
 
 ```bash
