@@ -23,6 +23,7 @@ from .monitoring_schema import (
     ToolEvidence,
     ToolPolicy,
 )
+from .monitor_grader import grade_monitor_run
 from .monitor_report import write_monitor_report
 
 
@@ -435,6 +436,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--report-html",
         help="Optional path for a self-contained HTML report artifact.",
     )
+    parser.add_argument(
+        "--grade",
+        action="store_true",
+        help="Run an outcome grader and include the grade in JSON output.",
+    )
     return parser
 
 
@@ -455,7 +461,12 @@ def main() -> None:
         report_path = write_monitor_report(run, args.report_html)
         print(f"Wrote HTML report to {report_path}")
 
-    print(json.dumps(run.model_dump(mode="json"), indent=2))
+    output: dict[str, Any] = {"run": run.model_dump(mode="json")}
+    if args.grade:
+        grade = grade_monitor_run(run)
+        output["grade"] = grade.model_dump(mode="json")
+
+    print(json.dumps(output if args.grade else output["run"], indent=2))
 
 
 if __name__ == "__main__":

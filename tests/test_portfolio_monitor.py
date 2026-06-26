@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from stocks_agent.monitoring_schema import MonitorMode, PortfolioConfig
+from stocks_agent.monitor_grader import grade_monitor_run
 from stocks_agent.portfolio_monitor import (
     SampleMarketDataProvider,
     load_portfolio_config,
@@ -124,6 +125,50 @@ class PortfolioMonitorTest(unittest.TestCase):
 
             self.assertTrue(report_path.exists())
             self.assertIn("Write report portfolio", report_path.read_text())
+
+    def test_grader_passes_supported_sample_alerts(self):
+        config = PortfolioConfig.model_validate(
+            {
+                "name": "Graded portfolio",
+                "positions": [
+                    {
+                        "ticker": "NVDA",
+                        "thesis": "Premium AI infrastructure thesis.",
+                        "max_distance_from_high_pct": 15,
+                        "max_pe_ratio": 80,
+                        "watch_keywords": ["export restriction"],
+                    }
+                ],
+            }
+        )
+        run = run_monitor(config=config, provider=SampleMarketDataProvider())
+
+        grade = grade_monitor_run(run)
+
+        self.assertTrue(grade.passed)
+        self.assertEqual(grade.score, 1.0)
+
+    def test_grader_fails_missing_alert_evidence(self):
+        config = PortfolioConfig.model_validate(
+            {
+                "name": "Broken evidence portfolio",
+                "positions": [
+                    {
+                        "ticker": "NVDA",
+                        "thesis": "Premium AI infrastructure thesis.",
+                        "max_distance_from_high_pct": 15,
+                    }
+                ],
+            }
+        )
+        run = run_monitor(config=config, provider=SampleMarketDataProvider())
+        run.alerts[0].evidence_ids = ["missing-evidence-id"]
+
+        grade = grade_monitor_run(run)
+
+        self.assertFalse(grade.passed)
+        criteria = {finding.criterion for finding in grade.findings}
+        self.assertIn("alert_evidence_resolves", criteria)
 
     def test_load_config_and_write_ledger(self):
         with tempfile.TemporaryDirectory() as tmpdir:

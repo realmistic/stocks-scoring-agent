@@ -138,6 +138,12 @@ python -m stocks_agent.portfolio_monitor \
   --portfolio examples/portfolio.json \
   --sample-data \
   --report-html outputs/report.html
+
+# Include the deterministic outcome grader
+python -m stocks_agent.portfolio_monitor \
+  --portfolio examples/portfolio.json \
+  --sample-data \
+  --grade
 ```
 
 Format alerts for Telegram:
@@ -154,6 +160,12 @@ print(format_telegram_digest(run))
 
 Sending the digest requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
 See `docs/portfolio-thesis-drift-monitor.md` for the harness design.
+
+Run monitor tests:
+
+```bash
+uv run python -m unittest discover -s tests
+```
 
 ## 🛠️ Available Tools (17)
 
@@ -221,6 +233,7 @@ stocks-scoring-agent/
 │   ├── structured_agent.py   # Structured output agent (OpenAI, 30 fields)
 │   ├── free_agent.py         # Local Ollama agent (Qwen, Llama, etc.)
 │   ├── monitoring_schema.py  # Portfolio monitor schemas
+│   ├── monitor_grader.py     # Deterministic outcome grader
 │   ├── portfolio_monitor.py  # Thesis drift monitoring harness
 │   ├── monitor_report.py     # Self-contained HTML report artifact
 │   └── telegram_digest.py    # Telegram digest helpers
