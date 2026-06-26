@@ -13,6 +13,9 @@ Four intelligent agent types for different analysis needs:
 
 **17 analysis tools** covering fundamentals, SEC filings, social sentiment, earnings, news, and screening.
 
+Also includes a **Portfolio Thesis Drift Monitor** harness for scheduled,
+cost-aware monitoring of a portfolio without making buy/sell predictions.
+
 ## ✨ Key Features
 
 ✅ **SEC Filing Analysis** - 10-K/10-Q with period comparisons  
@@ -113,6 +116,39 @@ print(agent.list_models()) # See recommended models
 - `qwen3:14b` (good) - Solid performance, requires 8GB+ RAM  
 - `llama3.1:8b` (fast) - Lightweight, requires 4GB+ RAM
 
+### Portfolio Thesis Drift Monitor
+Runs a light daily portfolio check and emits review alerts when a configured
+holding crosses valuation, price-action, target-upside, or news-keyword
+thresholds.
+
+```bash
+# Offline smoke test with sample market data
+python -m stocks_agent.portfolio_monitor \
+  --portfolio examples/portfolio.json \
+  --sample-data
+
+# Append an auditable JSONL run ledger
+python -m stocks_agent.portfolio_monitor \
+  --portfolio examples/portfolio.json \
+  --sample-data \
+  --write-ledger
+```
+
+Format alerts for Telegram:
+
+```python
+from stocks_agent.portfolio_monitor import SampleMarketDataProvider
+from stocks_agent.portfolio_monitor import load_portfolio_config, run_monitor
+from stocks_agent.telegram_digest import format_telegram_digest
+
+config = load_portfolio_config("examples/portfolio.json")
+run = run_monitor(config, provider=SampleMarketDataProvider())
+print(format_telegram_digest(run))
+```
+
+Sending the digest requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`.
+See `docs/portfolio-thesis-drift-monitor.md` for the harness design.
+
 ## 🛠️ Available Tools (17)
 
 ### 📊 Core Fundamentals (7 tools)
@@ -177,7 +213,16 @@ stocks-scoring-agent/
 │   ├── simple_agent.py       # Stateless agent (OpenAI)
 │   ├── conversation_agent.py # Memory-enabled agent (OpenAI)
 │   ├── structured_agent.py   # Structured output agent (OpenAI, 30 fields)
-│   └── free_agent.py         # Local Ollama agent (Qwen, Llama, etc.)
+│   ├── free_agent.py         # Local Ollama agent (Qwen, Llama, etc.)
+│   ├── monitoring_schema.py  # Portfolio monitor schemas
+│   ├── portfolio_monitor.py  # Thesis drift monitoring harness
+│   └── telegram_digest.py    # Telegram digest helpers
+├── docs/
+│   └── portfolio-thesis-drift-monitor.md
+├── examples/
+│   └── portfolio.json        # Sample monitor config
+├── tests/
+│   └── test_portfolio_monitor.py
 ├── notebooks/
 │   ├── 0_api_endpoints_test_data.ipynb    # API testing
 │   ├── 1_tools_and_sample_agents.ipynb    # Tool demos & tutorials

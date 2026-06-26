@@ -159,6 +159,9 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# Portfolio monitor run ledger
+runs/*.jsonl
+
 # Pyre type checker
 .pyre/
 
