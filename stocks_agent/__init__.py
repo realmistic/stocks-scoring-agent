@@ -4,6 +4,16 @@ from .simple_agent import SimpleAgent
 from .conversation_agent import ConversationAgent
 from .structured_agent import StructuredAgent
 from .free_agent import FreeAgent
+from .monitoring_schema import (
+    AlertSeverity,
+    MonitorMode,
+    MonitorRun,
+    PortfolioAlert,
+    PortfolioConfig,
+    PortfolioPosition,
+    ToolEvidence,
+    ToolPolicy,
+)
 
 # Also expose for direct use
 from .tools import (
@@ -32,6 +42,14 @@ __all__ = [
     'ConversationAgent',
     'StructuredAgent',
     'FreeAgent',
+    'AlertSeverity',
+    'MonitorMode',
+    'MonitorRun',
+    'PortfolioAlert',
+    'PortfolioConfig',
+    'PortfolioPosition',
+    'ToolEvidence',
+    'ToolPolicy',
     # Tools
     'get_company_info_basic',
     'get_company_info',
